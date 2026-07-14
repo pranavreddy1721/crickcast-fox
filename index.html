@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Fox Cricket</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <meta name="referrer" content="no-referrer"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.js"></script>
+  <style>
+    body { background-color: #000; margin: 0; padding: 0; overflow: hidden; }
+    html, body { height: 100%; width: 100%; }
+    .video-container { position: relative; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; }
+    video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    .plyr { height: 100%; width: 100%; }
+
+    .watermark{position:fixed;top:14px;right:16px;z-index:9999;pointer-events:none;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.35);border:1px solid rgba(0,229,255,0.25);border-radius:4px;padding:3px 8px 3px 6px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+    .watermark-dot{width:6px;height:6px;border-radius:50%;background:#00e5ff;animation:pulse 2s ease-in-out infinite;flex-shrink:0}
+    .watermark-text{font-family:system-ui,-apple-system,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,0.4)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+    @media(max-width:700px){.watermark{top:8px;right:8px}.watermark-text{font-size:10px}}
+  </style>
+</head>
+<body>
+  <div class="video-container">
+    <video autoplay playsinline muted id="player" controls preload="metadata"></video>
+  </div>
+  <div class="watermark"><div class="watermark-dot"></div><span class="watermark-text">CRICKCAST</span></div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const video = document.getElementById("player");
+      const source = "https://hugh.cdn.rumble.cloud/live/mu10xuf3/slot-37/zta4-vncc/chunklist.m3u8";
+      const defaultOptions = {
+        autoplay: true,
+        controls: ['play', 'rewind', 'fast-forward', 'progress', 'current-time', 'mute', 'volume', 'settings', 'fullscreen'],
+        settings: ['quality']
+      };
+      let player;
+      function setupPlayer(hls, qualities = []) {
+        player = new Plyr(video, {
+          ...defaultOptions,
+          quality: qualities.length ? {
+            default: qualities[0],
+            options: qualities,
+            forced: true,
+            onChange: q => {
+              hls.levels.forEach((level, index) => {
+                if (level.height === q) hls.currentLevel = index;
+              });
+            }
+          } : {}
+        });
+        setInterval(() => {
+          if (video.paused && video.readyState > 2) video.play().catch(()=>{});
+        }, 3000);
+        const unmute = () => {
+          video.muted = false;
+          video.volume = 1;
+          document.removeEventListener("click", unmute);
+          document.removeEventListener("touchstart", unmute);
+        };
+        document.addEventListener("click", unmute);
+        document.addEventListener("touchstart", unmute);
+      }
+      if (Hls.isSupported()) {
+        const hls = new Hls({ autoStartLoad: true });
+        hls.loadSource(source);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+          const availableQualities = data.levels.map(l => l.height).sort((a,b) => b - a);
+          video.play().catch(()=>{});
+          setupPlayer(hls, availableQualities);
+        });
+        hls.on(Hls.Events.ERROR, function (_, data) {
+          if (data.fatal) hls.startLoad();
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = source;
+        video.addEventListener("loadedmetadata", () => {
+          video.play().catch(()=>{});
+          setupPlayer(null);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
